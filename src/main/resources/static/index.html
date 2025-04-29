@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stock News</title>
+</head>
+<body>
+<h1>Stock News</h1>
+<form id="stockForm">
+    <label for="stocks">Enter stock names (comma separated): </label>
+    <input type="text" id="stocks" name="stocks" required>
+    <button type="submit">Fetch News</button>
+</form>
+
+<div id="newsResults"></div>
+
+<script>
+    document.getElementById("stockForm").addEventListener("submit", function(event) {
+        event.preventDefault();
+
+        const stocksInput = document.getElementById("stocks").value;
+        const stocksArray = stocksInput.split(",").map(stock => stock.trim());
+
+        fetch('https://stin25news-production.up.railway.app/liststock', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(stocksArray)
+        })
+            .then(response => response.json())
+            .then(data => {
+                const resultsDiv = document.getElementById("newsResults");
+                resultsDiv.innerHTML = '<h2>News:</h2>';
+                data.forEach(article => {
+                    const articleElement = document.createElement("div");
+                    articleElement.innerHTML = `
+                        <h3>${article.title}</h3>
+                        <p>${article.description}</p>
+                        <a href="${article.url}" target="_blank">Read more</a>
+                    `;
+                    resultsDiv.appendChild(articleElement);
+                });
+            })
+            .catch(error => {
+                console.error('Error fetching news:', error);
+            });
+    });
+</script>
+</body>
+</html>

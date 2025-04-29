@@ -22,7 +22,7 @@ public class NewsApiClient {
                 .uri(uriBuilder -> uriBuilder
                         .path("/v2/everything")
                         .queryParam("q", query)
-                        .queryParam("from", "2024-04-01") // můžeš později dynamicky
+                        .queryParam("from", "2025-04-01") // můžeš později dynamicky
                         .queryParam("sortBy", "publishedAt")
                         .queryParam("apiKey", apiKey)
                         .build())
@@ -32,9 +32,11 @@ public class NewsApiClient {
                 .block(); // POZOR – blokuje, ale pro jednoduchost OK
 
         if (response == null || response.getArticles() == null) {
+            System.out.println("Žádné články pro '" + query + "'.");
             return Collections.emptyList();
         }
 
+        System.out.println("Počet článků pro '" + query + "': " + response.getArticles().size());
         return response.getArticles();
     }
 }
