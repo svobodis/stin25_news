@@ -7,6 +7,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Mono;
 
+import java.time.LocalDate;
 import java.util.Collections;
 import java.util.List;
 
@@ -14,15 +15,15 @@ import java.util.List;
 public class NewsApiClient {
 
     private final WebClient webClient = WebClient.create("https://newsapi.org");
-
     private final String apiKey = "0e25ed76a2c74908b4d628216c3be42d";
 
-    public List<Article> fetchNews(String query) {
+    public List<Article> fetchNews(String query, int daysBack) {
+        LocalDate fromDate = LocalDate.now().minusDays(daysBack);
         NewsApiResponse response = webClient.get()
                 .uri(uriBuilder -> uriBuilder
                         .path("/v2/everything")
                         .queryParam("q", query)
-                        .queryParam("from", "2025-04-01") // můžeš později dynamicky
+                        .queryParam("from", fromDate.toString()) // můžeš později dynamicky
                         .queryParam("sortBy", "publishedAt")
                         .queryParam("apiKey", apiKey)
                         .build())
