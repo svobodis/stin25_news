@@ -1,9 +1,11 @@
 package com.svoboda_kraus.stin2025_news.controller;
 
+import com.svoboda_kraus.stin2025_news.model.Article;
 import com.svoboda_kraus.stin2025_news.service.NewsApiClient;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.ArrayList;
 import java.util.List;
 
 @RestController
@@ -14,12 +16,12 @@ public class NewsController {
     private NewsApiClient newsApiClient;
 
     @PostMapping
-    public List<String> listStock(@RequestBody List<String> stockNames) {
+    public List<Article> listStock(@RequestBody List<String> stockNames) {
+        List<Article> allArticles = new ArrayList<>();
         for (String name : stockNames) {
-            String response = newsApiClient.fetchNews(name);
-            System.out.println("Zprávy pro " + name + ":");
-            System.out.println(response); // zatím jen tiskneme surový JSON do konzole
+            List<Article> articles = newsApiClient.fetchNews(name);
+            allArticles.addAll(articles);
         }
-        return List.of(); // zatím vracíme prázdný list
+        return allArticles;
     }
 }
