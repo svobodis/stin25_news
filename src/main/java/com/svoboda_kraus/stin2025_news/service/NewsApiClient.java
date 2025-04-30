@@ -23,14 +23,14 @@ public class NewsApiClient {
                 .uri(uriBuilder -> uriBuilder
                         .path("/v2/everything")
                         .queryParam("q", query)
-                        .queryParam("from", fromDate.toString()) // můžeš později dynamicky
+                        .queryParam("from", fromDate.toString())
                         .queryParam("sortBy", "publishedAt")
                         .queryParam("apiKey", apiKey)
                         .build())
                 .retrieve()
                 .bodyToMono(NewsApiResponse.class)
                 .onErrorReturn(new NewsApiResponse())
-                .block(); // POZOR – blokuje, ale pro jednoduchost OK
+                .block();
 
         if (response == null || response.getArticles() == null) {
             System.out.println("Žádné články pro '" + query + "'.");

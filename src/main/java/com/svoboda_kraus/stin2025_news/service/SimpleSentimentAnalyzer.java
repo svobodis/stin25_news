@@ -8,15 +8,17 @@ public class SimpleSentimentAnalyzer {
     private static final List<String> POSITIVE_WORDS = Arrays.asList("profit", "gain", "growth", "increase", "success", "strong");
     private static final List<String> NEGATIVE_WORDS = Arrays.asList("loss", "decline", "crash", "drop", "weaken", "bad", "lab");
 
-    public static String analyze(String text) {
-        if (text == null) return "neutral";
+    public static int analyze(String text) {
+        if (text == null) return 0;
 
         String lower = text.toLowerCase();
-        long positives = POSITIVE_WORDS.stream().filter(lower::contains).count();
-        long negatives = NEGATIVE_WORDS.stream().filter(lower::contains).count();
 
-        if (positives > negatives) return "positive";
-        if (negatives > positives) return "negative";
-        return "neutral";
+        int positive = (int) POSITIVE_WORDS.stream().filter(lower::contains).count();
+        int negative = (int) NEGATIVE_WORDS.stream().filter(lower::contains).count();
+
+        int score = positive - negative;
+
+        if (score > 10) return 10;
+        return Math.max(score, -10);
     }
 }

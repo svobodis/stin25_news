@@ -1,52 +1,48 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Stock News</title>
+    <meta charset="UTF-8" />
+    <title>Stock News Filter</title>
 </head>
 <body>
-<h1>Stock News</h1>
-<form id="stockForm">
-    <label for="stocks">Enter stock names (comma separated): </label>
-    <input type="text" id="stocks" name="stocks" required>
-    <button type="submit">Fetch News</button>
-</form>
+<h2>Stock News Filter</h2>
 
-<div id="newsResults"></div>
+<label for="stocks">Stock names (comma separated):</label><br>
+<input type="text" id="stocks" value="AAPL,TSLA"><br><br>
+
+<label for="minArticles">Minimum number of articles:</label>
+<input type="number" id="minArticles" value="3"><br><br>
+
+<label>
+    <input type="checkbox" id="allowNegative">
+    Allow negative-rated stocks
+</label><br><br>
+
+<button onclick="fetchNews()">Fetch News</button>
+
+<pre id="output"></pre>
 
 <script>
-    document.getElementById("stockForm").addEventListener("submit", function(event) {
-        event.preventDefault();
+    async function fetchNews() {
+        const stockInput = document.getElementById("stocks").value;
+        const stockNames = stockInput.split(",").map(s => s.trim()).filter(s => s);
+        const minArticles = document.getElementById("minArticles").value;
+        const allowNegative = document.getElementById("allowNegative").checked;
 
-        const stocksInput = document.getElementById("stocks").value;
-        const stocksArray = stocksInput.split(",").map(stock => stock.trim());
+        const response = await fetch(
+            `/liststock?minArticles=${minArticles}&allowNegative=${allowNegative}`,
+            {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify(stockNames)
+            }
+        );
 
-        fetch('https://stin25news-production.up.railway.app/liststock', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(stocksArray)
-        })
-            .then(response => response.json())
-            .then(data => {
-                const resultsDiv = document.getElementById("newsResults");
-                resultsDiv.innerHTML = '<h2>News:</h2>';
-                data.forEach(article => {
-                    const articleElement = document.createElement("div");
-                    articleElement.innerHTML = `
-                        <h3>${article.title}</h3>
-                        <p>${article.description}</p>
-                        <a href="${article.url}" target="_blank">Read more</a>
-                    `;
-                    resultsDiv.appendChild(articleElement);
-                });
-            })
-            .catch(error => {
-                console.error('Error fetching news:', error);
-            });
-    });
+        const result = await response.json();
+        document.getElementById("output").textContent = JSON.stringify(result, null, 2);
+    }
 </script>
 </body>
 </html>

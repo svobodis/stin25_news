@@ -7,18 +7,18 @@ public class Article {
     private String content;
     private String publishedAt;
 
-    private String rating;
+    private int rating;
 
 
     public Article() {
 
     }
 
-    public String getRating() {
+    public int getRating() {
         return rating;
     }
 
-    public void setRating(String rating) {
+    public void setRating(int rating) {
         this.rating = rating;
     }
 
