@@ -2,17 +2,34 @@ package com.svoboda_kraus.stin2025_news.service;
 
 import com.svoboda_kraus.stin2025_news.model.RatedArticleGroup;
 
-import java.util.*;
-import java.util.stream.Collectors;
+import java.util.ArrayList;
+import java.util.List;
 
 public class ArticleFilter {
 
-    private static final int MIN_ARTICLE_COUNT = 3;
+    private final int minArticleCount;
+    private final boolean allowNegative;
+
+    public ArticleFilter(int minArticleCount, boolean allowNegative) {
+        this.minArticleCount = minArticleCount;
+        this.allowNegative = allowNegative;
+    }
 
     public List<RatedArticleGroup> filter(List<RatedArticleGroup> input) {
-        return input.stream()
-            .filter(group -> group.getArticles().size() >= MIN_ARTICLE_COUNT)
-            .filter(group -> group.getArticles().stream().anyMatch(a -> a.getRating() >= 0))
-            .collect(Collectors.toList());
+        List<RatedArticleGroup> filtered = new ArrayList<>();
+
+        for (RatedArticleGroup group : input) {
+            if (group.getArticles().size() < minArticleCount) {
+                continue;
+            }
+
+            if (!allowNegative && group.getAverageRating() < 0) {
+                continue;
+            }
+
+            filtered.add(group);
+        }
+
+        return filtered;
     }
 }
