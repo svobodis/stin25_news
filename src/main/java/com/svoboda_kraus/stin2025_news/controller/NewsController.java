@@ -20,7 +20,7 @@ public class NewsController {
 
     @PostMapping
     public List<RatedArticleGroup> listStock(@RequestBody List<String> stockNames,
-                                             @RequestParam(defaultValue = "15") int minArticles,
+                                             @RequestParam(defaultValue = "3") int minArticles,
                                              @RequestParam(defaultValue = "false") boolean allowNegative) {
 
         List<RatedArticleGroup> rawGroups = new ArrayList<>();
@@ -37,11 +37,8 @@ public class NewsController {
             rawGroups.add(new RatedArticleGroup(name, articles));
         }
 
+        // 🔧 APLIKUJ FILTR
         ArticleFilter filter = new ArticleFilter(minArticles, allowNegative);
         return filter.filter(rawGroups);
     }
 }
-
-
-
-
