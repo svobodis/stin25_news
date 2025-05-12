@@ -20,39 +20,30 @@ public class ArticleFilter {
     }
 
     public List<RatedArticleGroup> filter(List<RatedArticleGroup> input) {
-        logger.info("=== FILTR BYL VOLÁN ===");
-
         List<RatedArticleGroup> filtered = new ArrayList<>();
-
+    
         for (RatedArticleGroup group : input) {
-            double avgRating = group.getAverageRating();
             int articleCount = group.getArticles().size();
-
-            logger.info("Firma: {}, článků: {}, průměr: {}, allowNegative: {}",
-                    getGroupName(group), articleCount, avgRating, allowNegative);
-
+    
             if (articleCount < minArticleCount) {
-                logger.info("⛔ Vyřazeno – málo článků");
+                continue; // málo článků
+            }
+    
+            if (!allowNegative) {
+                // ⛔ Odstraň články s negativním hodnocením
+                group.getArticles().removeIf(article -> article.getRating() < 0);
+            }
+    
+            // ⚠️ Pokud po odstranění nejsou žádné články, přeskoč
+            if (group.getArticles().isEmpty()) {
                 continue;
             }
-
-            if (!allowNegative && avgRating < 0) {
-                logger.info("⛔ Vyřazeno – negativní rating");
-                continue;
-            }
-
-            logger.info("✅ Přidáno");
+    
             filtered.add(group);
         }
-
+    
         return filtered;
     }
-
-    private String getGroupName(RatedArticleGroup group) {
-        try {
-            return group.getStockName(); // nebo getName(), přizpůsob dle modelu
-        } catch (Exception e) {
-            return "(neznámá firma)";
-        }
-    }
+    
 }
+    
