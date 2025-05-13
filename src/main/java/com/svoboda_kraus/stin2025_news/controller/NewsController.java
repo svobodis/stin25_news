@@ -49,6 +49,7 @@ public class NewsController {
 
    
     @PostMapping("/salestock")
+    
 public List<String> handleRecommendations(@RequestBody List<StockRecommendation> recommendations) {
     List<String> changes = new ArrayList<>();
 
@@ -61,22 +62,22 @@ public List<String> handleRecommendations(@RequestBody List<StockRecommendation>
         boolean invalid = false;
 
         if (name == null || name.trim().isEmpty()) {
-            logger.warn("❌ Neplatná položka – chybí nebo je prázdné jméno: {}", rec);
+            logger.warn("Neplatná položka – chybí nebo je prázdné jméno: {}", rec);
             invalid = true;
         }
 
         if (date <= 0) {
-            logger.warn("❌ Neplatná položka – neplatné datum (timestamp <= 0): {}", rec);
+            logger.warn("Neplatná položka – neplatné datum (timestamp <= 0): {}", rec);
             invalid = true;
         }
 
         if (rating < -10 || rating > 10) {
-            logger.warn("❌ Neplatná položka – rating mimo rozsah <-10, 10>: {}", rec);
+            logger.warn("Neplatná položka – rating mimo rozsah <-10, 10>: {}", rec);
             invalid = true;
         }
 
         if (sell != 0 && sell != 1) {
-            logger.warn("❌ Neplatná položka – hodnota sell musí být 0 nebo 1, ale je {}: {}", sell, rec);
+            logger.warn("Neplatná položka – hodnota sell musí být 0 nebo 1, ale je {}: {}", sell, rec);
             invalid = true;
         }
 
@@ -97,7 +98,10 @@ public List<String> handleRecommendations(@RequestBody List<StockRecommendation>
 
     return changes;
 }
-
+@GetMapping("/portfolio")
+public Set<String> getPortfolio() {
+    return portfolio;
+}
 
 
 }
