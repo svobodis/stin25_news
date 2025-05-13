@@ -5,7 +5,7 @@ public class StockRecommendation {
     private String name;
     private long date;
     private int rating;
-    private int sell; // 0 = koupit, 1 = prodat
+    private int sell;
 
     public StockRecommendation() {
     }
@@ -49,7 +49,6 @@ public class StockRecommendation {
         this.sell = sell;
     }
 
-   
     @Override
     public String toString() {
         return "StockRecommendation{" +
@@ -59,6 +58,4 @@ public class StockRecommendation {
                ", sell=" + sell +
                '}';
     }
-    
 }
-

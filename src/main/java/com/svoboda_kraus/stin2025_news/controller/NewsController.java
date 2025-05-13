@@ -1,8 +1,6 @@
 package com.svoboda_kraus.stin2025_news.controller;
 
-import com.svoboda_kraus.stin2025_news.model.Article;
-import com.svoboda_kraus.stin2025_news.model.RatedArticleGroup;
-import com.svoboda_kraus.stin2025_news.model.StockRecommendation;
+import com.svoboda_kraus.stin2025_news.model.*;
 import com.svoboda_kraus.stin2025_news.service.ArticleFilter;
 import com.svoboda_kraus.stin2025_news.service.NewsApiClient;
 import com.svoboda_kraus.stin2025_news.service.SimpleSentimentAnalyzer;
@@ -11,6 +9,10 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.ZoneId;
+import java.time.temporal.ChronoUnit;
 import java.util.*;
 
 @RestController
@@ -24,6 +26,7 @@ public class NewsController {
 
     private final Set<String> portfolio = new HashSet<>(Set.of("Apple", "Google")); // simulace
 
+    // 🔁 FRONTEND ENDPOINT
     @PostMapping
     public List<RatedArticleGroup> listStock(@RequestBody List<String> stockNames,
                                              @RequestParam(defaultValue = "3") int minArticles,
@@ -48,61 +51,78 @@ public class NewsController {
         return filter.filter(rawGroups);
     }
 
-   
-    @PostMapping("/salestock")
-    
-public List<String> handleRecommendations(@RequestBody List<StockRecommendation> recommendations) {
-    List<String> changes = new ArrayList<>();
+    // 📤 BURZA POSÍLÁ: name, date – ZPRÁVY DOPLNÍ: rating, sell
+    @PostMapping("/rating")
+    public List<StockRecommendation> analyzeStocks(@RequestBody List<StockRecommendation> requests,
+                                                   @RequestParam(defaultValue = "0") int sellThreshold) {
+        List<StockRecommendation> results = new ArrayList<>();
 
-    for (StockRecommendation rec : recommendations) {
-        String name = rec.getName();
-        int sell = rec.getSell();
-        int rating = rec.getRating();
-        long date = rec.getDate();
+        for (StockRecommendation req : requests) {
+            if (req.getName() == null || req.getName().isBlank() || req.getDate() <= 0) {
+                logger.warn("Neplatná položka ve vstupu: {}", req);
+                continue;
+            }
 
-        boolean invalid = false;
+            LocalDate fromDate = Instant.ofEpochSecond(req.getDate())
+                                        .atZone(ZoneId.systemDefault())
+                                        .toLocalDate();
+            long daysBack = ChronoUnit.DAYS.between(fromDate, LocalDate.now());
+            if (daysBack < 1) daysBack = 1;
 
-        if (name == null || name.trim().isEmpty()) {
-            logger.warn("Neplatná položka – chybí nebo je prázdné jméno: {}", rec);
-            invalid = true;
+            List<Article> articles = newsApiClient.fetchNews(req.getName(), (int) daysBack);
+
+            int totalScore = 0;
+            for (Article article : articles) {
+                String fullText = article.getTitle() + " " + article.getDescription();
+                totalScore += SimpleSentimentAnalyzer.analyze(fullText);
+            }
+
+            int avgRating = articles.isEmpty() ? 0 : totalScore / articles.size();
+            int sell = avgRating < sellThreshold ? 1 : 0;
+
+
+            results.add(new StockRecommendation(req.getName(), req.getDate(), avgRating, sell));
+
         }
 
-        if (date <= 0) {
-            logger.warn("Neplatná položka – neplatné datum (timestamp <= 0): {}", rec);
-            invalid = true;
-        }
-
-        if (rating < -10 || rating > 10) {
-            logger.warn("Neplatná položka – rating mimo rozsah <-10, 10>: {}", rec);
-            invalid = true;
-        }
-
-        if (sell != 0 && sell != 1) {
-            logger.warn("Neplatná položka – hodnota sell musí být 0 nebo 1, ale je {}: {}", sell, rec);
-            invalid = true;
-        }
-
-        if (invalid) continue;
-
-        boolean inPortfolio = portfolio.contains(name);
-
-        if (sell == 1 && inPortfolio) {
-            portfolio.remove(name);
-            changes.add("Prodal jsem: " + name);
-        } else if (sell == 0 && !inPortfolio) {
-            portfolio.add(name);
-            changes.add("Nakoupil jsem: " + name);
-        } else {
-            changes.add("Beze změny: " + name);
-        }
+        return results;
     }
 
-    return changes;
-}
-@GetMapping("/portfolio")
-public Set<String> getPortfolio() {
-    return portfolio;
-}
+    // ✅ POUZE VALIDUJE A VRACÍ VSTUP (např. pro testování / kontrolu z Burzy)
+    @PostMapping("/salestock")
+    public List<StockRecommendation> handleRecommendations(@RequestBody List<StockRecommendation> recommendations) {
+        List<StockRecommendation> valid = new ArrayList<>();
 
+        for (StockRecommendation rec : recommendations) {
+            boolean invalid = false;
 
+            if (rec.getName() == null || rec.getName().trim().isEmpty()) {
+                logger.warn("Neplatná položka – chybí jméno: {}", rec);
+                invalid = true;
+            }
+            if (rec.getDate() <= 0) {
+                logger.warn("Neplatná položka – neplatné datum: {}", rec);
+                invalid = true;
+            }
+            if (rec.getRating() < -10 || rec.getRating() > 10) {
+                logger.warn("Neplatná položka – rating mimo rozsah: {}", rec);
+                invalid = true;
+            }
+            if (rec.getSell() != 0 && rec.getSell() != 1) {
+                logger.warn("Neplatná položka – sell není 0 nebo 1: {}", rec);
+                invalid = true;
+            }
+
+            if (!invalid) {
+                valid.add(rec);
+            }
+        }
+
+        return valid;
+    }
+
+    @GetMapping("/portfolio")
+    public Set<String> getPortfolio() {
+        return portfolio;
+    }
 }
