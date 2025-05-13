@@ -1,48 +1,31 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8" />
-    <title>Stock News Filter</title>
+  <meta charset="UTF-8" />
+  <title>Stock News Filter</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
-<h2>Stock News Filter</h2>
+  <div class="container">
+    <h2>Stock News Filter</h2>
 
-<label for="stocks">Stock names (comma separated):</label><br>
-<input type="text" id="stocks" value="AAPL,TSLA"><br><br>
+    <label for="stocks">Stock names (comma separated):</label>
+    <input type="text" id="stocks" value="AAPL,TSLA">
 
-<label for="minArticles">Minimum number of articles:</label>
-<input type="number" id="minArticles" value="3"><br><br>
+    <label for="minArticles">Minimum number of articles:</label>
+    <input type="number" id="minArticles" value="3" min="1">
 
-<label>
-    <input type="checkbox" id="allowNegative">
-    Allow negative-rated stocks
-</label><br><br>
+    <label>
+      <input type="checkbox" id="allowNegative">
+      Allow negative-rated stocks
+    </label>
 
-<button onclick="fetchNews()">Fetch News</button>
+    <button onclick="fetchNews()">Fetch News</button>
 
-<pre id="output"></pre>
+    <pre id="output"></pre>
+  </div>
 
-<script>
-    async function fetchNews() {
-        const stockInput = document.getElementById("stocks").value;
-        const stockNames = stockInput.split(",").map(s => s.trim()).filter(s => s);
-        const minArticles = document.getElementById("minArticles").value;
-        const allowNegative = document.getElementById("allowNegative").checked;
-
-        const response = await fetch(
-            `/liststock?minArticles=${minArticles}&allowNegative=${allowNegative}`,
-            {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json"
-                },
-                body: JSON.stringify(stockNames)
-            }
-        );
-
-        const result = await response.json();
-        document.getElementById("output").textContent = JSON.stringify(result, null, 2);
-    }
-</script>
+  <script src="script.js"></script>
 </body>
 </html>
