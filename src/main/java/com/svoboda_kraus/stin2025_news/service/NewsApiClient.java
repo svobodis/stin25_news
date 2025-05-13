@@ -5,7 +5,6 @@ import com.svoboda_kraus.stin2025_news.model.NewsApiResponse;
 
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
-import reactor.core.publisher.Mono;
 
 import java.time.LocalDate;
 import java.util.Collections;

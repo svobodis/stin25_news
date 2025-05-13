@@ -62,3 +62,4 @@ public class Article {
         this.publishedAt = publishedAt;
     }
 }
+
