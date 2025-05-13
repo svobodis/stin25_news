@@ -32,16 +32,16 @@ public class ArticleFilter {
                     getGroupName(group), articleCount, avgRating, allowNegative);
 
             if (articleCount < minArticleCount) {
-                logger.info("⛔ Vyřazeno – málo článků");
+                logger.info("yřazeno – málo článků");
                 continue;
             }
 
             if (!allowNegative && avgRating < 0) {
-                logger.info("⛔ Vyřazeno – negativní rating");
+                logger.info("Vyřazeno – negativní rating");
                 continue;
             }
 
-            logger.info("✅ Přidáno");
+            logger.info("Přidáno");
             filtered.add(group);
         }
 
