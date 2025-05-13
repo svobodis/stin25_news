@@ -27,12 +27,13 @@ public class NewsController {
     @PostMapping
     public List<RatedArticleGroup> listStock(@RequestBody List<String> stockNames,
                                              @RequestParam(defaultValue = "3") int minArticles,
-                                             @RequestParam(defaultValue = "false") boolean allowNegative) {
+                                             @RequestParam(defaultValue = "false") boolean allowNegative,
+                                             @RequestParam(defaultValue = "7") int daysBack) {
 
         List<RatedArticleGroup> rawGroups = new ArrayList<>();
 
         for (String name : stockNames) {
-            List<Article> articles = newsApiClient.fetchNews(name, 15);
+            List<Article> articles = newsApiClient.fetchNews(name, daysBack);
 
             for (Article article : articles) {
                 String fullText = article.getTitle() + " " + article.getDescription();
