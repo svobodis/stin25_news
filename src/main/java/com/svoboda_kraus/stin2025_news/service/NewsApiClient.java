@@ -28,7 +28,6 @@ public class NewsApiClient {
         LocalDate requestedDate = Instant.ofEpochSecond(epochSeconds)
                 .atZone(ZoneId.systemDefault())
                 .toLocalDate();
-    
         LocalDate now = LocalDate.now();
         long daysBack = ChronoUnit.DAYS.between(requestedDate, now);
     
