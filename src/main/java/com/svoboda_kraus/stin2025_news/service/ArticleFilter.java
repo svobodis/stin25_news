@@ -32,7 +32,7 @@ public class ArticleFilter {
                     getGroupName(group), articleCount, avgRating, allowNegative);
 
             if (articleCount < minArticleCount) {
-                logger.info("yřazeno – málo článků");
+                logger.info("Vyřazeno – málo článků");
                 continue;
             }
 

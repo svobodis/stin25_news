@@ -17,7 +17,9 @@ import java.util.List;
 public class NewsApiClient {
 
     private final WebClient webClient = WebClient.create("https://newsapi.org");
-    private final String apiKey = "0e25ed76a2c74908b4d628216c3be42d";
+    //private final String apiKey = "0e25ed76a2c74908b4d628216c3be42d";
+    private final String apiKey = "76f239d0aa244b00b9830ea179d998cb";
+
 
     /**
      * @param query

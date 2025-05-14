@@ -1,6 +1,7 @@
 package com.svoboda_kraus.stin2025_news.service;
 import com.svoboda_kraus.stin2025_news.model.StockRecommendation;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.*;
@@ -15,10 +16,12 @@ public class BurzaController {
 
     private final WebClient newsClient;
 
+    @Value("${news.base-url}")
+    private String baseUrl;
     @Autowired
-    public BurzaController() {
+    public BurzaController(@Value("${news.base-url}") String baseUrl) {
         this.newsClient = WebClient.builder()
-            .baseUrl("http://localhost:8080")   // URL modulu zprávy
+            .baseUrl(baseUrl)   // URL modulu zprávy
             .build();
     }
 
