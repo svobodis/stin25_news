@@ -55,19 +55,27 @@ public class NewsController {
     public List<StockRecommendation> rateStocks(
             @RequestBody List<StockRecommendation> reqs,
             @RequestParam(defaultValue = "30") int maxDays) {
-
+    
         List<StockRecommendation> out = new ArrayList<>();
+    
         for (StockRecommendation r : reqs) {
-            if (r.getName() == null || r.getName().isBlank() || r.getDate() <= 0) {
-                logger.warn("Invalid input (rating): {}", r);
-                continue;
+            boolean valid = true;
+            if (r.getName() == null || r.getName().isBlank()) {
+                logger.warn("Neplatný vstup: chybí nebo prázdné jméno akcie: {}", r);
+                valid = false;
             }
+            if (r.getDate() <= 0) {
+                logger.warn("Neplatný vstup: neplatné datum pro akcii {}: {}", r.getName(), r);
+                valid = false;
+            }
+            if (!valid) continue;
+    
             LocalDate from = Instant.ofEpochSecond(r.getDate())
                                      .atZone(ZoneId.systemDefault())
                                      .toLocalDate();
             long days = ChronoUnit.DAYS.between(from, LocalDate.now());
             days = Math.max(1, Math.min(days, maxDays));
-
+    
             List<Article> arts = newsApiClient.fetchNews(r.getName(), (int) days);
             int total = arts.stream()
                             .mapToInt(a -> SimpleSentimentAnalyzer.analyze(
@@ -79,6 +87,7 @@ public class NewsController {
         }
         return out;
     }
+    
 
     // 3) BURZA volá s rating+sell → provedeme trade a vrátíme detaily
     @PostMapping("/salestock")
@@ -90,42 +99,42 @@ public class NewsController {
             Integer sell  = r.getSell();
 
             if (stock == null || stock.isBlank()) {
-                messages.add("⚠️ Neplatná položka: chybí název");
+                messages.add("Neplatná položka: chybí název");
                 continue;
             }
             if (r.getDate() <= 0) {
-                messages.add("⚠️ Neplatná položka: neplatné datum pro " + stock);
+                messages.add("Neplatná položka: neplatné datum pro " + stock);
                 continue;
             }
             if (r.getRating() < -10 || r.getRating() > 10) {
-                messages.add("⚠️ Neplatná položka: rating mimo rozsah pro " + stock);
+                messages.add("Neplatná položka: rating mimo rozsah pro " + stock);
                 continue;
             }
             if (sell == null) {
-                messages.add("⚠️ Neplatná položka: chybí sell pro " + stock);
+                messages.add("Neplatná položka: chybí sell pro " + stock);
                 continue;
             }
             if (sell != 0 && sell != 1) {
-                messages.add("⚠️ Neplatná položka: sell musí být 0 nebo 1 pro " + stock);
+                messages.add("Neplatná položka: sell musí být 0 nebo 1 pro " + stock);
                 continue;
             }
 
             if (sell == 1) {
                 // prodej
                 if (portfolio.remove(stock)) {
-                    messages.add("✅ Prodaná akcie: " + stock);
+                    messages.add("Prodaná akcie: " + stock);
                     logger.info("Prodaná akcie: {}", stock);
                 } else {
-                    messages.add("❌ Nelze prodat akcii " + stock + " – není v portfoliu");
+                    messages.add("Nelze prodat akcii " + stock + " – není v portfoliu");
                     logger.info("Nelze prodat {}, není v portfoliu", stock);
                 }
             } else {
                 // nákup
                 if (portfolio.add(stock)) {
-                    messages.add("✅ Nakoupena akcie: " + stock);
+                    messages.add("Nakoupena akcie: " + stock);
                     logger.info("Nakoupena akcie: {}", stock);
                 } else {
-                    messages.add("❌ Akcie " + stock + " již je v portfoliu, nekoupeno");
+                    messages.add("Akcie " + stock + " již je v portfoliu, nekoupeno");
                     logger.info("Akcie {} již v portfoliu, nekoupeno", stock);
                 }
             }
