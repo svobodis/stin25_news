@@ -8,35 +8,43 @@ public class SimpleSentimentAnalyzer {
     private static final Map<String, Integer> SENTIMENT_WEIGHTS = new HashMap<>();
 
     static {
-        // Pozitivní slova s váhami
-        SENTIMENT_WEIGHTS.put("profit", 2);
-        SENTIMENT_WEIGHTS.put("gain", 2);
-        SENTIMENT_WEIGHTS.put("growth", 2);
-        SENTIMENT_WEIGHTS.put("success", 3);
-        SENTIMENT_WEIGHTS.put("strong", 2);
-        SENTIMENT_WEIGHTS.put("surge", 3);
-        SENTIMENT_WEIGHTS.put("rise", 1);
-        SENTIMENT_WEIGHTS.put("record", 2);
-        SENTIMENT_WEIGHTS.put("optimism", 2);
-        SENTIMENT_WEIGHTS.put("bullish", 2);
-        SENTIMENT_WEIGHTS.put("soar", 3);
-        SENTIMENT_WEIGHTS.put("breakthrough", 4);
-        SENTIMENT_WEIGHTS.put("innovation", 3);
+        // Pozitivní
+        for (String word : new String[]{
+            "profit", "gain", "growth", "success", "strong", "surge", "rise",
+            "record", "optimism", "bullish", "soar", "breakthrough", "innovation",
+            "recovery", "resilient", "outperform", "exceed", "boost", "high",
+            "skyrocket", "accelerate", "expansion", "win", "solution", "achievement",
+            "milestone", "momentum", "improvement", "upgrade", "favorable"
+        }) {
+            SENTIMENT_WEIGHTS.put(word, 5);
+        }
 
-        // Negativní slova s váhami
-        SENTIMENT_WEIGHTS.put("loss", -2);
-        SENTIMENT_WEIGHTS.put("decline", -2);
-        SENTIMENT_WEIGHTS.put("crash", -4);
-        SENTIMENT_WEIGHTS.put("drop", -2);
-        SENTIMENT_WEIGHTS.put("bad", -1);
-        SENTIMENT_WEIGHTS.put("fall", -2);
+        SENTIMENT_WEIGHTS.put("breakthrough", 4);
+        SENTIMENT_WEIGHTS.put("success", 3);
+        SENTIMENT_WEIGHTS.put("surge", 6);
+        SENTIMENT_WEIGHTS.put("soar", 3);
+        SENTIMENT_WEIGHTS.put("record-breaking", 9);
+
+        // Negativní
+        for (String word : new String[]{
+            "loss", "decline", "drop", "fall", "cut", "miss", "bad", "risk",
+            "instability", "underperform", "debt", "scandal", "layoff", "downturn",
+            "fraud", "collapse", "bankruptcy", "warning", "volatile", "negative",
+            "crash", "plunge", "bearish", "slump", "turmoil", "recession", "fear",
+            "lawsuit", "downgrade", "default"
+        }) {
+            SENTIMENT_WEIGHTS.put(word, -3);
+        }
+
+        SENTIMENT_WEIGHTS.put("crash", -8);
         SENTIMENT_WEIGHTS.put("plunge", -3);
         SENTIMENT_WEIGHTS.put("scandal", -3);
         SENTIMENT_WEIGHTS.put("bankruptcy", -4);
+        SENTIMENT_WEIGHTS.put("collapse", -4);
         SENTIMENT_WEIGHTS.put("fraud", -3);
         SENTIMENT_WEIGHTS.put("recession", -3);
-        SENTIMENT_WEIGHTS.put("layoff", -2);
-        SENTIMENT_WEIGHTS.put("collapse", -4);
+        SENTIMENT_WEIGHTS.put("turmoil", -3);
+        SENTIMENT_WEIGHTS.put("warning", -2);
     }
 
     public static int analyze(String text) {
@@ -52,10 +60,7 @@ public class SimpleSentimentAnalyzer {
             totalScore += count * weight;
         }
 
-        // Omezíme rozsah výsledku
-        if (totalScore > 10) return 10;
-        if (totalScore < -10) return -10;
-        return totalScore;
+        return Math.max(-10, Math.min(10, totalScore));
     }
 
     private static int countOccurrences(String text, String word) {

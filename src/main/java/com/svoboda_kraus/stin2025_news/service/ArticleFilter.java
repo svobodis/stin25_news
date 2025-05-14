@@ -32,7 +32,7 @@ public class ArticleFilter {
                     getGroupName(group), articleCount, avgRating, allowNegative);
 
             if (articleCount < minArticleCount) {
-                logger.info("yřazeno – málo článků");
+                logger.info("Vyřazeno – málo článků");
                 continue;
             }
 
@@ -50,7 +50,7 @@ public class ArticleFilter {
 
     private String getGroupName(RatedArticleGroup group) {
         try {
-            return group.getStockName(); // nebo getName(), přizpůsob dle modelu
+            return group.getStockName(); 
         } catch (Exception e) {
             return "(neznámá firma)";
         }

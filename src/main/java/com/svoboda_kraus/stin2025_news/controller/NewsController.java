@@ -26,126 +26,119 @@ public class NewsController {
     @Autowired
     private NewsApiClient newsApiClient;
 
-    // Simulované portfolio (můžeš propojit s databází)
-    private final Set<String> portfolio = new HashSet<>(Set.of("Apple", "Google"));
+    // Sdílené portfolio, přetrvává mezi voláními
+    private final Set<String> portfolio = new HashSet<>();
 
-    // FRONTEND: získání hodnocených článků
+    // 1) FRONTEND: získání článků + ratingů
     @PostMapping
-    public List<RatedArticleGroup> listStock(@RequestBody List<String> stockNames,
-                                             @RequestParam(defaultValue = "3") int minArticles,
-                                             @RequestParam(defaultValue = "false") boolean allowNegative,
-                                             @RequestParam(defaultValue = "7") int daysBack) {
+    public List<RatedArticleGroup> listStock(
+            @RequestBody List<String> stockNames,
+            @RequestParam(defaultValue = "3") int minArticles,
+            @RequestParam(defaultValue = "false") boolean allowNegative,
+            @RequestParam(defaultValue = "7") int daysBack) {
 
-        List<RatedArticleGroup> rawGroups = new ArrayList<>();
-
+        List<RatedArticleGroup> groups = new ArrayList<>();
         for (String name : stockNames) {
-            List<Article> articles = newsApiClient.fetchNews(name, daysBack);
-
-            for (Article article : articles) {
-                String fullText = article.getTitle() + " " + article.getDescription();
-                int score = SimpleSentimentAnalyzer.analyze(fullText);
-                article.setRating(score);
+            List<Article> arts = newsApiClient.fetchNews(name, daysBack);
+            for (Article a : arts) {
+                String full = Optional.ofNullable(a.getTitle()).orElse("") + " "
+                                    + Optional.ofNullable(a.getDescription()).orElse("");
+                a.setRating(SimpleSentimentAnalyzer.analyze(full));
             }
-
-            rawGroups.add(new RatedArticleGroup(name, articles));
+            groups.add(new RatedArticleGroup(name, arts));
         }
-
-        ArticleFilter filter = new ArticleFilter(minArticles, allowNegative);
-        return filter.filter(rawGroups);
+        return new ArticleFilter(minArticles, allowNegative).filter(groups);
     }
 
-    // BURZA posílá: name, date – my vrátíme rating (bez sell)
+    // 2) BURZA volá → vracíme jen rating (sell=null)
     @PostMapping("/rating")
-    public List<StockRecommendation> analyzeStocks(@RequestBody List<StockRecommendation> requests) {
-        List<StockRecommendation> results = new ArrayList<>();
+    public List<StockRecommendation> rateStocks(
+            @RequestBody List<StockRecommendation> reqs,
+            @RequestParam(defaultValue = "30") int maxDays) {
 
-        for (StockRecommendation req : requests) {
-            if (req.getName() == null || req.getName().isBlank() || req.getDate() <= 0) {
-                logger.warn("Neplatná položka ve vstupu: {}", req);
+        List<StockRecommendation> out = new ArrayList<>();
+        for (StockRecommendation r : reqs) {
+            if (r.getName() == null || r.getName().isBlank() || r.getDate() <= 0) {
+                logger.warn("Invalid input (rating): {}", r);
                 continue;
             }
+            LocalDate from = Instant.ofEpochSecond(r.getDate())
+                                     .atZone(ZoneId.systemDefault())
+                                     .toLocalDate();
+            long days = ChronoUnit.DAYS.between(from, LocalDate.now());
+            days = Math.max(1, Math.min(days, maxDays));
 
-            LocalDate fromDate = Instant.ofEpochSecond(req.getDate())
-                    .atZone(ZoneId.systemDefault())
-                    .toLocalDate();
-            long daysBack = ChronoUnit.DAYS.between(fromDate, LocalDate.now());
-            if (daysBack < 1) daysBack = 1;
-
-            List<Article> articles = newsApiClient.fetchNews(req.getName(), (int) daysBack);
-
-            int totalScore = 0;
-
-            for (Article article : articles) {
-                String fullText = article.getTitle() + " " + article.getDescription();
-                int score = SimpleSentimentAnalyzer.analyze(fullText);
-
-                logger.info("Analyzuji akcii '{}':", req.getName());
-                logger.info("Článek: '{}'", fullText);
-                logger.info("Skóre článku: {}", score);
-
-                totalScore += score;
-            }
-
-            int avgRating = articles.isEmpty() ? 0 : totalScore / articles.size();
-
-            // Necháváme sell jako null – přidá BURZA
-            results.add(new StockRecommendation(req.getName(), req.getDate(), avgRating, null));
+            List<Article> arts = newsApiClient.fetchNews(r.getName(), (int) days);
+            int total = arts.stream()
+                            .mapToInt(a -> SimpleSentimentAnalyzer.analyze(
+                                Optional.ofNullable(a.getTitle()).orElse("") + " " +
+                                Optional.ofNullable(a.getDescription()).orElse("")))
+                            .sum();
+            int avg = arts.isEmpty() ? 0 : total / arts.size();
+            out.add(new StockRecommendation(r.getName(), r.getDate(), avg));
         }
-
-        return results;
+        return out;
     }
 
-    // BURZA vrací zpět rating + sell => my prodáme nebo nakoupíme
+    // 3) BURZA volá s rating+sell → provedeme trade a vrátíme detaily
     @PostMapping("/salestock")
-    public String handleRecommendations(@RequestBody List<StockRecommendation> recommendations) {
-        List<String> koupene = new ArrayList<>();
-        List<String> prodane = new ArrayList<>();
+    public List<String> executeTrades(@RequestBody List<StockRecommendation> recs) {
+        List<String> messages = new ArrayList<>();
 
-        for (StockRecommendation rec : recommendations) {
-            if (rec.getName() == null || rec.getName().trim().isEmpty() ||
-                rec.getDate() <= 0 || rec.getRating() < -10 || rec.getRating() > 10 ||
-                rec.getSell() == null || (rec.getSell() != 0 && rec.getSell() != 1)) {
+        for (StockRecommendation r : recs) {
+            String stock = r.getName();
+            Integer sell  = r.getSell();
 
-                logger.warn("Neplatná položka: {}", rec);
+            if (stock == null || stock.isBlank()) {
+                messages.add("⚠️ Neplatná položka: chybí název");
+                continue;
+            }
+            if (r.getDate() <= 0) {
+                messages.add("⚠️ Neplatná položka: neplatné datum pro " + stock);
+                continue;
+            }
+            if (r.getRating() < -10 || r.getRating() > 10) {
+                messages.add("⚠️ Neplatná položka: rating mimo rozsah pro " + stock);
+                continue;
+            }
+            if (sell == null) {
+                messages.add("⚠️ Neplatná položka: chybí sell pro " + stock);
+                continue;
+            }
+            if (sell != 0 && sell != 1) {
+                messages.add("⚠️ Neplatná položka: sell musí být 0 nebo 1 pro " + stock);
                 continue;
             }
 
-            String stock = rec.getName();
-
-            if (rec.getSell() == 1 && portfolio.contains(stock)) {
-                portfolio.remove(stock);
-                prodane.add(stock);
-                logger.info("Prodaná akcie: {}", stock);
-            } else if (rec.getSell() == 0 && !portfolio.contains(stock)) {
-                portfolio.add(stock);
-                koupene.add(stock);
-                logger.info("Nakoupena akcie: {}", stock);
+            if (sell == 1) {
+                // prodej
+                if (portfolio.remove(stock)) {
+                    messages.add("✅ Prodaná akcie: " + stock);
+                    logger.info("Prodaná akcie: {}", stock);
+                } else {
+                    messages.add("❌ Nelze prodat akcii " + stock + " – není v portfoliu");
+                    logger.info("Nelze prodat {}, není v portfoliu", stock);
+                }
             } else {
-                logger.info("Beze změny: {}", stock);
+                // nákup
+                if (portfolio.add(stock)) {
+                    messages.add("✅ Nakoupena akcie: " + stock);
+                    logger.info("Nakoupena akcie: {}", stock);
+                } else {
+                    messages.add("❌ Akcie " + stock + " již je v portfoliu, nekoupeno");
+                    logger.info("Akcie {} již v portfoliu, nekoupeno", stock);
+                }
             }
         }
 
-        StringBuilder response = new StringBuilder();
-        if (!koupene.isEmpty()) {
-            response.append("Nakoupil jsem ").append(String.join(", ", koupene));
+        if (messages.isEmpty()) {
+            messages.add("ℹ️ Nebyly provedeny žádné operace.");
         }
-        if (!prodane.isEmpty()) {
-            if (!koupene.isEmpty()) {
-                response.append(" a ");
-            }
-            response.append("prodal jsem ").append(String.join(", ", prodane));
-        }
-
-        if (response.isEmpty()) {
-            return "Nebyly provedeny žádné změny v portfoliu.";
-        }
-
-        return response.toString();
+        return messages;
     }
 
-    // Pomocný endpoint pro kontrolu portfolia
     @GetMapping("/portfolio")
     public Set<String> getPortfolio() {
-        return portfolio;
+        return Collections.unmodifiableSet(portfolio);
     }
 }
