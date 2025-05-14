@@ -11,6 +11,10 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.ZoneId;
+import java.time.temporal.ChronoUnit;
 import java.util.*;
 
 @RestController
@@ -22,8 +26,10 @@ public class NewsController {
     @Autowired
     private NewsApiClient newsApiClient;
 
-    private final Set<String> portfolio = new HashSet<>(Set.of("Apple", "Google")); // simulace
+    // Simulované portfolio (můžeš propojit s databází)
+    private final Set<String> portfolio = new HashSet<>(Set.of("Apple", "Google"));
 
+    // FRONTEND: získání hodnocených článků
     @PostMapping
     public List<RatedArticleGroup> listStock(@RequestBody List<String> stockNames,
                                              @RequestParam(defaultValue = "3") int minArticles,
@@ -48,61 +54,98 @@ public class NewsController {
         return filter.filter(rawGroups);
     }
 
-   
-    @PostMapping("/salestock")
-    
-public List<String> handleRecommendations(@RequestBody List<StockRecommendation> recommendations) {
-    List<String> changes = new ArrayList<>();
+    // BURZA posílá: name, date – my vrátíme rating (bez sell)
+    @PostMapping("/rating")
+    public List<StockRecommendation> analyzeStocks(@RequestBody List<StockRecommendation> requests) {
+        List<StockRecommendation> results = new ArrayList<>();
 
-    for (StockRecommendation rec : recommendations) {
-        String name = rec.getName();
-        int sell = rec.getSell();
-        int rating = rec.getRating();
-        long date = rec.getDate();
+        for (StockRecommendation req : requests) {
+            if (req.getName() == null || req.getName().isBlank() || req.getDate() <= 0) {
+                logger.warn("Neplatná položka ve vstupu: {}", req);
+                continue;
+            }
 
-        boolean invalid = false;
+            LocalDate fromDate = Instant.ofEpochSecond(req.getDate())
+                    .atZone(ZoneId.systemDefault())
+                    .toLocalDate();
+            long daysBack = ChronoUnit.DAYS.between(fromDate, LocalDate.now());
+            if (daysBack < 1) daysBack = 1;
 
-        if (name == null || name.trim().isEmpty()) {
-            logger.warn("Neplatná položka – chybí nebo je prázdné jméno: {}", rec);
-            invalid = true;
+            List<Article> articles = newsApiClient.fetchNews(req.getName(), (int) daysBack);
+
+            int totalScore = 0;
+
+            for (Article article : articles) {
+                String fullText = article.getTitle() + " " + article.getDescription();
+                int score = SimpleSentimentAnalyzer.analyze(fullText);
+
+                logger.info("Analyzuji akcii '{}':", req.getName());
+                logger.info("Článek: '{}'", fullText);
+                logger.info("Skóre článku: {}", score);
+
+                totalScore += score;
+            }
+
+            int avgRating = articles.isEmpty() ? 0 : totalScore / articles.size();
+
+            // Necháváme sell jako null – přidá BURZA
+            results.add(new StockRecommendation(req.getName(), req.getDate(), avgRating, null));
         }
 
-        if (date <= 0) {
-            logger.warn("Neplatná položka – neplatné datum (timestamp <= 0): {}", rec);
-            invalid = true;
-        }
-
-        if (rating < -10 || rating > 10) {
-            logger.warn("Neplatná položka – rating mimo rozsah <-10, 10>: {}", rec);
-            invalid = true;
-        }
-
-        if (sell != 0 && sell != 1) {
-            logger.warn("Neplatná položka – hodnota sell musí být 0 nebo 1, ale je {}: {}", sell, rec);
-            invalid = true;
-        }
-
-        if (invalid) continue;
-
-        boolean inPortfolio = portfolio.contains(name);
-
-        if (sell == 1 && inPortfolio) {
-            portfolio.remove(name);
-            changes.add("Prodal jsem: " + name);
-        } else if (sell == 0 && !inPortfolio) {
-            portfolio.add(name);
-            changes.add("Nakoupil jsem: " + name);
-        } else {
-            changes.add("Beze změny: " + name);
-        }
+        return results;
     }
 
-    return changes;
-}
-@GetMapping("/portfolio")
-public Set<String> getPortfolio() {
-    return portfolio;
-}
+    // BURZA vrací zpět rating + sell => my prodáme nebo nakoupíme
+    @PostMapping("/salestock")
+    public String handleRecommendations(@RequestBody List<StockRecommendation> recommendations) {
+        List<String> koupene = new ArrayList<>();
+        List<String> prodane = new ArrayList<>();
 
+        for (StockRecommendation rec : recommendations) {
+            if (rec.getName() == null || rec.getName().trim().isEmpty() ||
+                rec.getDate() <= 0 || rec.getRating() < -10 || rec.getRating() > 10 ||
+                rec.getSell() == null || (rec.getSell() != 0 && rec.getSell() != 1)) {
 
+                logger.warn("Neplatná položka: {}", rec);
+                continue;
+            }
+
+            String stock = rec.getName();
+
+            if (rec.getSell() == 1 && portfolio.contains(stock)) {
+                portfolio.remove(stock);
+                prodane.add(stock);
+                logger.info("Prodaná akcie: {}", stock);
+            } else if (rec.getSell() == 0 && !portfolio.contains(stock)) {
+                portfolio.add(stock);
+                koupene.add(stock);
+                logger.info("Nakoupena akcie: {}", stock);
+            } else {
+                logger.info("Beze změny: {}", stock);
+            }
+        }
+
+        StringBuilder response = new StringBuilder();
+        if (!koupene.isEmpty()) {
+            response.append("Nakoupil jsem ").append(String.join(", ", koupene));
+        }
+        if (!prodane.isEmpty()) {
+            if (!koupene.isEmpty()) {
+                response.append(" a ");
+            }
+            response.append("prodal jsem ").append(String.join(", ", prodane));
+        }
+
+        if (response.isEmpty()) {
+            return "Nebyly provedeny žádné změny v portfoliu.";
+        }
+
+        return response.toString();
+    }
+
+    // Pomocný endpoint pro kontrolu portfolia
+    @GetMapping("/portfolio")
+    public Set<String> getPortfolio() {
+        return portfolio;
+    }
 }
