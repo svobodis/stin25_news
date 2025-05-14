@@ -58,42 +58,33 @@ public class NewsController {
     @PostMapping("/rating")
     public List<StockRecommendation> analyzeStocks(@RequestBody List<StockRecommendation> requests) {
         List<StockRecommendation> results = new ArrayList<>();
-
+    
         for (StockRecommendation req : requests) {
-            if (req.getName() == null || req.getName().isBlank() || req.getDate() <= 0) {
-                logger.warn("Neplatná položka ve vstupu: {}", req);
-                continue;
-            }
-
+            String stock = req.getName();
+            if (stock == null || stock.isBlank() || req.getDate() <= 0) continue;
+    
             LocalDate fromDate = Instant.ofEpochSecond(req.getDate())
-                    .atZone(ZoneId.systemDefault())
-                    .toLocalDate();
-            long daysBack = ChronoUnit.DAYS.between(fromDate, LocalDate.now());
+                    .atZone(ZoneId.systemDefault()).toLocalDate();
+            int daysBack = (int) ChronoUnit.DAYS.between(fromDate, LocalDate.now());
             if (daysBack < 1) daysBack = 1;
-
-            List<Article> articles = newsApiClient.fetchNews(req.getName(), (int) daysBack);
-
-            int totalScore = 0;
-
+    
+            // 👉 Stejné jako frontend
+            List<Article> articles = newsApiClient.fetchNews(stock, daysBack);
             for (Article article : articles) {
                 String fullText = article.getTitle() + " " + article.getDescription();
-                int score = SimpleSentimentAnalyzer.analyze(fullText);
-
-                logger.info("Analyzuji akcii '{}':", req.getName());
-                logger.info("Článek: '{}'", fullText);
-                logger.info("Skóre článku: {}", score);
-
-                totalScore += score;
+                article.setRating(SimpleSentimentAnalyzer.analyze(fullText));
             }
-
-            int avgRating = articles.isEmpty() ? 0 : totalScore / articles.size();
-
-            // Necháváme sell jako null – přidá BURZA
-            results.add(new StockRecommendation(req.getName(), req.getDate(), avgRating, null));
+    
+            // 👉 Výpočet průměrného ratingu
+            int total = articles.stream().mapToInt(Article::getRating).sum();
+            int avgRating = articles.isEmpty() ? 0 : total / articles.size();
+    
+            results.add(new StockRecommendation(stock, req.getDate(), avgRating, null));
         }
-
+    
         return results;
     }
+    
 
     // BURZA vrací zpět rating + sell => my prodáme nebo nakoupíme
     @PostMapping("/salestock")

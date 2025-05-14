@@ -31,7 +31,6 @@ public class StockRecommendation {
                 "name='" + name + '\'' +
                 ", date=" + date +
                 ", rating=" + rating +
-                ", sell=" + sell +
                 '}';
     }
 }

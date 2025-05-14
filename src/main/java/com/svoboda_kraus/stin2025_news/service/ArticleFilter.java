@@ -50,7 +50,7 @@ public class ArticleFilter {
 
     private String getGroupName(RatedArticleGroup group) {
         try {
-            return group.getStockName(); // nebo getName(), přizpůsob dle modelu
+            return group.getStockName(); 
         } catch (Exception e) {
             return "(neznámá firma)";
         }
