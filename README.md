@@ -2,6 +2,23 @@
 
 Tento dokument popisuje, jak externí burzovní systémy mohou komunikovat s backendem aplikace pro hodnocení akcií na základě aktuálních zpráv.
 
+## ⚙️ Jak to funguje
+
+### 📰 Získávání článků a výpočet ratingu
+
+1. Backend přes NewsAPI vyhledá články související s danou akcií.
+2. Spojí `title` a `description` článků.
+3. Pomocí jednoduché **sentimentové analýzy** (klíčová slova jako „výbuch“, „propad“, „rekord“, apod.) každému článku přiřadí skóre od `-10` do `+10`.
+4. Vypočítá **průměrné skóre (rating)** pro každou akcii.
+
+### 🧠 Rating
+- Hodnota `rating` je celé číslo, reprezentující sentiment k akcii.
+- Příklad:
+  - negativní zprávy → `-2`
+  - neutrální zprávy → `0`
+  - pozitivní články → `+3`
+
+
 ## 🌐 URL endpoint
 
 https://stin25news-production.up.railway.app/liststock/rating
