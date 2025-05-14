@@ -1,6 +1,8 @@
 package com.svoboda_kraus.stin2025_news.controller;
 
-import com.svoboda_kraus.stin2025_news.model.*;
+import com.svoboda_kraus.stin2025_news.model.Article;
+import com.svoboda_kraus.stin2025_news.model.RatedArticleGroup;
+import com.svoboda_kraus.stin2025_news.model.StockRecommendation;
 import com.svoboda_kraus.stin2025_news.service.ArticleFilter;
 import com.svoboda_kraus.stin2025_news.service.NewsApiClient;
 import com.svoboda_kraus.stin2025_news.service.SimpleSentimentAnalyzer;
@@ -24,9 +26,10 @@ public class NewsController {
     @Autowired
     private NewsApiClient newsApiClient;
 
-    private final Set<String> portfolio = new HashSet<>(Set.of("Apple", "Google")); // simulace
+    // Simulované portfolio (můžeš propojit s databází)
+    private final Set<String> portfolio = new HashSet<>(Set.of("Apple", "Google"));
 
-    // 🔁 FRONTEND ENDPOINT
+    // FRONTEND: získání hodnocených článků
     @PostMapping
     public List<RatedArticleGroup> listStock(@RequestBody List<String> stockNames,
                                              @RequestParam(defaultValue = "3") int minArticles,
@@ -51,10 +54,9 @@ public class NewsController {
         return filter.filter(rawGroups);
     }
 
-    // 📤 BURZA POSÍLÁ: name, date – ZPRÁVY DOPLNÍ: rating, sell
+    // BURZA posílá: name, date – my vrátíme rating (bez sell)
     @PostMapping("/rating")
-    public List<StockRecommendation> analyzeStocks(@RequestBody List<StockRecommendation> requests,
-                                                   @RequestParam(defaultValue = "0") int sellThreshold) {
+    public List<StockRecommendation> analyzeStocks(@RequestBody List<StockRecommendation> requests) {
         List<StockRecommendation> results = new ArrayList<>();
 
         for (StockRecommendation req : requests) {
@@ -64,63 +66,84 @@ public class NewsController {
             }
 
             LocalDate fromDate = Instant.ofEpochSecond(req.getDate())
-                                        .atZone(ZoneId.systemDefault())
-                                        .toLocalDate();
+                    .atZone(ZoneId.systemDefault())
+                    .toLocalDate();
             long daysBack = ChronoUnit.DAYS.between(fromDate, LocalDate.now());
             if (daysBack < 1) daysBack = 1;
 
             List<Article> articles = newsApiClient.fetchNews(req.getName(), (int) daysBack);
 
             int totalScore = 0;
+
             for (Article article : articles) {
                 String fullText = article.getTitle() + " " + article.getDescription();
-                totalScore += SimpleSentimentAnalyzer.analyze(fullText);
+                int score = SimpleSentimentAnalyzer.analyze(fullText);
+
+                logger.info("Analyzuji akcii '{}':", req.getName());
+                logger.info("Článek: '{}'", fullText);
+                logger.info("Skóre článku: {}", score);
+
+                totalScore += score;
             }
 
             int avgRating = articles.isEmpty() ? 0 : totalScore / articles.size();
-            int sell = avgRating < sellThreshold ? 1 : 0;
 
-
-            results.add(new StockRecommendation(req.getName(), req.getDate(), avgRating, sell));
-
+            // Necháváme sell jako null – přidá BURZA
+            results.add(new StockRecommendation(req.getName(), req.getDate(), avgRating, null));
         }
 
         return results;
     }
 
-    // ✅ POUZE VALIDUJE A VRACÍ VSTUP (např. pro testování / kontrolu z Burzy)
+    // BURZA vrací zpět rating + sell => my prodáme nebo nakoupíme
     @PostMapping("/salestock")
-    public List<StockRecommendation> handleRecommendations(@RequestBody List<StockRecommendation> recommendations) {
-        List<StockRecommendation> valid = new ArrayList<>();
+    public String handleRecommendations(@RequestBody List<StockRecommendation> recommendations) {
+        List<String> koupene = new ArrayList<>();
+        List<String> prodane = new ArrayList<>();
 
         for (StockRecommendation rec : recommendations) {
-            boolean invalid = false;
+            if (rec.getName() == null || rec.getName().trim().isEmpty() ||
+                rec.getDate() <= 0 || rec.getRating() < -10 || rec.getRating() > 10 ||
+                rec.getSell() == null || (rec.getSell() != 0 && rec.getSell() != 1)) {
 
-            if (rec.getName() == null || rec.getName().trim().isEmpty()) {
-                logger.warn("Neplatná položka – chybí jméno: {}", rec);
-                invalid = true;
-            }
-            if (rec.getDate() <= 0) {
-                logger.warn("Neplatná položka – neplatné datum: {}", rec);
-                invalid = true;
-            }
-            if (rec.getRating() < -10 || rec.getRating() > 10) {
-                logger.warn("Neplatná položka – rating mimo rozsah: {}", rec);
-                invalid = true;
-            }
-            if (rec.getSell() != 0 && rec.getSell() != 1) {
-                logger.warn("Neplatná položka – sell není 0 nebo 1: {}", rec);
-                invalid = true;
+                logger.warn("Neplatná položka: {}", rec);
+                continue;
             }
 
-            if (!invalid) {
-                valid.add(rec);
+            String stock = rec.getName();
+
+            if (rec.getSell() == 1 && portfolio.contains(stock)) {
+                portfolio.remove(stock);
+                prodane.add(stock);
+                logger.info("Prodaná akcie: {}", stock);
+            } else if (rec.getSell() == 0 && !portfolio.contains(stock)) {
+                portfolio.add(stock);
+                koupene.add(stock);
+                logger.info("Nakoupena akcie: {}", stock);
+            } else {
+                logger.info("Beze změny: {}", stock);
             }
         }
 
-        return valid;
+        StringBuilder response = new StringBuilder();
+        if (!koupene.isEmpty()) {
+            response.append("Nakoupil jsem ").append(String.join(", ", koupene));
+        }
+        if (!prodane.isEmpty()) {
+            if (!koupene.isEmpty()) {
+                response.append(" a ");
+            }
+            response.append("prodal jsem ").append(String.join(", ", prodane));
+        }
+
+        if (response.isEmpty()) {
+            return "Nebyly provedeny žádné změny v portfoliu.";
+        }
+
+        return response.toString();
     }
 
+    // Pomocný endpoint pro kontrolu portfolia
     @GetMapping("/portfolio")
     public Set<String> getPortfolio() {
         return portfolio;
