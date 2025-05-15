@@ -1,5 +1,6 @@
 package com.svoboda_kraus.stin2025_news.controller;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.svoboda_kraus.stin2025_news.model.Article;
 import com.svoboda_kraus.stin2025_news.model.RatedArticleGroup;
 import com.svoboda_kraus.stin2025_news.model.StockRecommendation;
@@ -61,51 +62,57 @@ public class NewsController {
             @RequestBody List<StockRecommendation> reqs,
             @RequestParam(defaultValue = "30") int maxDays) {
     
+        logger.info("📥 ZPRÁVY obdržely JSON s pouze 'name' a 'date':");
+        reqs.forEach(r -> logger.info(" - name: {}, date: {}", r.getName(), r.getDate()));
+    
         List<StockRecommendation> out = new ArrayList<>();
     
         for (StockRecommendation r : reqs) {
             boolean valid = true;
             if (r.getName() == null || r.getName().isBlank()) {
-                logger.warn("Neplatný vstup: chybí nebo prázdné jméno akcie: {}", r);
+                logger.warn("❌ Neplatný vstup: chybí nebo prázdné jméno akcie: {}", r);
                 valid = false;
             }
-            if (r.getDate() <= 0) {
-                logger.warn("Neplatný vstup: neplatné datum pro akcii {}: {}", r.getName(), r);
+            if (r.getDate() <= 1000000000L || r.getDate() >= 9999999999L) {
+                logger.warn("❌ Neplatný vstup: očekáván 10místný epoch timestamp pro {}", r.getName());
                 valid = false;
             }
             if (!valid) continue;
     
             LocalDate from = Instant.ofEpochSecond(r.getDate())
-                                     .atZone(ZoneId.systemDefault())
-                                     .toLocalDate();
+                    .atZone(ZoneId.systemDefault())
+                    .toLocalDate();
             long days = ChronoUnit.DAYS.between(from, LocalDate.now());
             days = Math.max(1, Math.min(days, maxDays));
     
             List<Article> arts = newsApiClient.fetchNews(r.getName(), (int) days);
             int total = arts.stream()
-                            .mapToInt(a -> SimpleSentimentAnalyzer.analyze(
-                                Optional.ofNullable(a.getTitle()).orElse("") + " " +
-                                Optional.ofNullable(a.getDescription()).orElse("")))
-                            .sum();
+                    .mapToInt(a -> SimpleSentimentAnalyzer.analyze(
+                            Optional.ofNullable(a.getTitle()).orElse("") + " " +
+                            Optional.ofNullable(a.getDescription()).orElse("")))
+                    .sum();
             int avg = arts.isEmpty() ? 0 : total / arts.size();
             out.add(new StockRecommendation(r.getName(), r.getDate(), avg));
         }
-
-        // 🔁 Poslání výsledků zpět na burzovní URL
-        String burzaUrl = "http://burza.partner.cz:8000/rating";
+    
+        out.forEach(r -> logger.info(" - name: {}, date: {}, rating: {}", r.getName(), r.getDate(), r.getRating()));
+    
+        // ➕ odeslání zpět na BURZA
+        String burzaUrl = "http://localhost:8080/mock/rating";
         try {
             RestTemplate restTemplate = new RestTemplate();
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.APPLICATION_JSON);
             HttpEntity<List<StockRecommendation>> entity = new HttpEntity<>(out, headers);
             restTemplate.postForEntity(burzaUrl, entity, String.class);
-            logger.info("Výsledky byly úspěšně odeslány na {}", burzaUrl);
+            //logger.info("✅ Výsledky byly úspěšně odeslány na {}", burzaUrl);
         } catch (Exception ex) {
-            logger.error("Chyba při odesílání výsledků na burzu: {}", ex.getMessage());
+            logger.error("❌ Chyba při odesílání výsledků na burzu: {}", ex.getMessage());
         }
-
+    
         return out;
-}
+    }
+    
 
 
     // 3) BURZA volá s rating+sell → provedeme trade a vrátíme detaily

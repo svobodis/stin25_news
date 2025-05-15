@@ -1,6 +1,8 @@
 package com.svoboda_kraus.stin2025_news.service;
+
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.svoboda_kraus.stin2025_news.model.StockRecommendation;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.MediaType;
@@ -11,56 +13,48 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 @RestController
-@RequestMapping("/burza")
+@RequestMapping("/mock")
 public class BurzaController {
 
     private final WebClient newsClient;
+    private final ObjectMapper objectMapper = new ObjectMapper(); // pro logování JSONů
 
-    @Value("${news.base-url}")
-    private String baseUrl;
-    @Autowired
     public BurzaController(@Value("${news.base-url}") String baseUrl) {
         this.newsClient = WebClient.builder()
-            .baseUrl(baseUrl)   // URL modulu zprávy
-            .build();
+                .baseUrl(baseUrl)
+                .build();
     }
 
-    /**
-     * Krok I: na manuální start nebo CRON volání.
-     * Tady by se normálně získávala data z burzy (historie), filtrovala by se podle cen.
-     * Pro jednoduchost předpokládáme, že dostaneme jména+timestamp.
-     */
-    @PostMapping("/getRecommendations")
-    public List<StockRecommendation> getRecommendations(
-            @RequestBody List<StockRecommendation> stocks,
-            @RequestParam(defaultValue = "0") int sellThreshold) {
+    @PostMapping("/rating")
+    public void acceptRatingFromZpravy(@RequestBody List<StockRecommendation> rated,
+                                       @RequestParam(defaultValue = "0") int sellThreshold) {
 
-        // 1) Získej hodnocení od modulu Zprávy
-        List<StockRecommendation> rated = newsClient.post()
-            .uri("/liststock/rating")
-            .contentType(MediaType.APPLICATION_JSON)
-            .bodyValue(stocks)
-            .retrieve()
-            .bodyToMono(new ParameterizedTypeReference<List<StockRecommendation>>() {})
-            .block();
+        try {
+            System.out.println("📨 BURZA přijala od ZPRÁV JSON:");
+            System.out.println(objectMapper.writerWithDefaultPrettyPrinter().writeValueAsString(rated));
+        } catch (JsonProcessingException e) {
+            System.out.println("❌ Chyba při logování přijatého JSONu");
+        }
 
-        // 2) Aplikuj threshold → doplň sell
         List<StockRecommendation> withSell = rated.stream()
-            .map(r -> {
-                int sell = r.getRating() > sellThreshold ? 1 : 0;
-                return new StockRecommendation(r.getName(), r.getDate(), r.getRating(), sell);
-            })
-            .collect(Collectors.toList());
+                .map(r -> new StockRecommendation(
+                        r.getName(), r.getDate(), r.getRating(),
+                        r.getRating() > sellThreshold ? 1 : 0))
+                .collect(Collectors.toList());
 
-        // 3) Pošli zpátky do Zpráv (krok II zpráv)
-        List<StockRecommendation> finalResp = newsClient.post()
-            .uri("/liststock/salestock")
-            .contentType(MediaType.APPLICATION_JSON)
-            .bodyValue(withSell)
-            .retrieve()
-            .bodyToMono(new ParameterizedTypeReference<List<StockRecommendation>>() {})
-            .block();
+        try {
+            System.out.println("📤 BURZA odesílá zpět do ZPRÁV JSON:");
+            System.out.println(objectMapper.writerWithDefaultPrettyPrinter().writeValueAsString(withSell));
+        } catch (JsonProcessingException e) {
+            System.out.println("❌ Chyba při logování odesílaného JSONu");
+        }
 
-        return finalResp;
+        newsClient.post()
+                .uri("/liststock/salestock")
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue(withSell)
+                .retrieve()
+                .toBodilessEntity()
+                .block();
     }
 }
