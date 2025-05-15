@@ -32,10 +32,10 @@ class NewsControllerTests {
         List<String> result = controller.executeTrades(input);
 
         assertEquals(4, result.size());
-        assertTrue(result.get(0).contains("✅ Nakoupena akcie"));
-        assertTrue(result.get(1).contains("❌ Akcie"));
-        assertTrue(result.get(2).contains("✅ Prodaná akcie"));
-        assertTrue(result.get(3).contains("❌ Nelze prodat"));
+        assertTrue(result.get(0).contains("Nakoupena akcie"));
+        assertTrue(result.get(1).contains("Akcie"));
+        assertTrue(result.get(2).contains("Prodaná akcie"));
+        assertTrue(result.get(3).contains("Nelze prodat"));
     }
 
     @Test

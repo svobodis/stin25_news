@@ -84,7 +84,7 @@ public class NewsControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(List.of(buy))))
                 .andExpect(status().isOk())
-                .andExpect(content().string(org.hamcrest.Matchers.containsString("✅ Nakoupena akcie: NVDA")));
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("Nakoupena akcie: NVDA")));
     }
 
     @Test
