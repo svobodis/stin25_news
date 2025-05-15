@@ -9,7 +9,11 @@ import com.svoboda_kraus.stin2025_news.service.SimpleSentimentAnalyzer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.client.RestTemplate;
 
 import java.time.Instant;
 import java.time.LocalDate;
@@ -28,6 +32,7 @@ public class NewsController {
 
     // Sdílené portfolio, přetrvává mezi voláními
     private final Set<String> portfolio = new HashSet<>();
+    List<StockRecommendation> out = new ArrayList<>();
 
     // 1) FRONTEND: získání článků + ratingů
     @PostMapping
@@ -85,9 +90,23 @@ public class NewsController {
             int avg = arts.isEmpty() ? 0 : total / arts.size();
             out.add(new StockRecommendation(r.getName(), r.getDate(), avg));
         }
+
+        // 🔁 Poslání výsledků zpět na burzovní URL
+        String burzaUrl = "http://burza.partner.cz:8000/rating";
+        try {
+            RestTemplate restTemplate = new RestTemplate();
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_JSON);
+            HttpEntity<List<StockRecommendation>> entity = new HttpEntity<>(out, headers);
+            restTemplate.postForEntity(burzaUrl, entity, String.class);
+            logger.info("Výsledky byly úspěšně odeslány na {}", burzaUrl);
+        } catch (Exception ex) {
+            logger.error("Chyba při odesílání výsledků na burzu: {}", ex.getMessage());
+        }
+
         return out;
-    }
-    
+}
+
 
     // 3) BURZA volá s rating+sell → provedeme trade a vrátíme detaily
     @PostMapping("/salestock")

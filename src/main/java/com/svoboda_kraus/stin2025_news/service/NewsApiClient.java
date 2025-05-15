@@ -2,9 +2,9 @@ package com.svoboda_kraus.stin2025_news.service;
 
 import com.svoboda_kraus.stin2025_news.model.Article;
 import com.svoboda_kraus.stin2025_news.model.NewsApiResponse;
-
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
+import reactor.util.retry.Retry;
 
 import java.time.Instant;
 import java.time.LocalDate;
@@ -12,6 +12,7 @@ import java.time.ZoneId;
 import java.time.temporal.ChronoUnit;
 import java.util.Collections;
 import java.util.List;
+import java.time.Duration;
 
 @Service
 public class NewsApiClient {
@@ -52,15 +53,16 @@ public class NewsApiClient {
                         .build())
                 .retrieve()
                 .bodyToMono(NewsApiResponse.class)
+                .retryWhen(Retry.fixedDelay(5, Duration.ofSeconds(3)))
                 .onErrorReturn(new NewsApiResponse())
                 .block();
     
         if (response == null || response.getArticles() == null) {
-            System.out.println("❌ Žádné články pro '" + query + "'.");
+            System.out.println("Žádné články pro '" + query + "'.");
             return Collections.emptyList();
         }
     
-        System.out.println("✅ Počet článků pro '" + query + "': " + response.getArticles().size());
+        System.out.println("Počet článků pro '" + query + "': " + response.getArticles().size());
         return response.getArticles();
     }
 }    
